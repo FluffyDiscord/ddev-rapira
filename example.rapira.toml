@@ -20,7 +20,9 @@ max_body_size_mb = 20
 # change you run `ddev rapira-restart`.
 mode = "classic"
 entrypoint = "public/index.php"
-processes = 2
+# Rapira's own default is the CPU count. One worker keeps a machine running several
+# DDEV projects predictable; raise it if your requests block on each other.
+processes = 1
 
 [log]
 level = "info"

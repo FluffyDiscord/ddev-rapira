@@ -179,6 +179,11 @@ installIntoBareProject() {
 
   run ddev exec grep -q 'proxy_pass http://rapira_backend' /etc/nginx/sites-enabled/nginx-site.conf
   assert_success
+
+  # AC-10. Rapira names its pool children `rapira-worker` and the master `rapira`, so this
+  # counts the pool alone. Unpinned, the fallback would fork one worker per CPU.
+  run ddev exec "pgrep -x -c rapira-worker"
+  assert_output "1"
 }
 
 # bats test_tags=runtime
