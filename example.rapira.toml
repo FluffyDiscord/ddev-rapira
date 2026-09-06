@@ -1,0 +1,27 @@
+# Example Rapira config for a DDEV project. Copy it to your project root as
+# rapira.toml and edit your copy — this add-on never writes or manages that file.
+#
+# Without a rapira.toml the add-on runs Rapira in classic mode against your docroot's
+# index.php, which serves any PHP application unchanged. This file is the next step:
+# a config you own, still in classic mode, ready to switch to a resident worker.
+#
+# [http] listen is deliberately absent: the add-on passes --listen 127.0.0.1:8000 on the
+# command line, which overrides the config file, because nginx proxies to that fixed port.
+#
+# To load a differently-named file instead:
+#     ddev dotenv set .ddev/.env.web --rapira-config-file=rapira.dev.toml && ddev restart
+
+[http]
+max_body_size_mb = 20
+
+[pool]
+# classic re-runs the entrypoint per request, so every save is live. Switch to
+# "dispatcher" for a resident worker — that needs framework support, and after a code
+# change you run `ddev rapira-restart`.
+mode = "classic"
+entrypoint = "public/index.php"
+processes = 2
+
+[log]
+level = "info"
+format = "plain"

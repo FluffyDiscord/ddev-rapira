@@ -1,0 +1,6 @@
+# Keep the release tarball that `ddev add-on get` installs to the add-on files only
+tests/ export-ignore
+docs/ export-ignore
+.github/ export-ignore
+.idea/ export-ignore
+.gitattributes export-ignore

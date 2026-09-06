@@ -1,0 +1,49 @@
+#ddev-generated
+# Installs the Rapira application server into the DDEV web image.
+#
+# Rapira embeds libphp rather than shipping a self-contained binary, so the release
+# binary is paired with the image's own PHP: sury's embed SAPI package supplies
+# libphp.so, and the embed SAPI's php.ini and conf.d are pointed at php-fpm's, so
+# Rapira runs the same PHP configuration and extension set as `ddev php`.
+#
+# DDEV's generated header already declares ARG DDEV_PHP_VERSION; re-declaring it here
+# would shadow it to empty.
+
+ARG RAPIRA_VERSION=v0.8.1
+
+COPY rapira-daemon.sh /usr/local/bin/rapira-daemon
+
+RUN set -eux -o pipefail; \
+    chmod +x /usr/local/bin/rapira-daemon; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    case "$(dpkg --print-architecture)" in \
+        amd64) architecture=x86_64 ;; \
+        arm64) architecture=aarch64 ;; \
+        *) echo "Rapira publishes linux builds for amd64 and arm64 only." >&2; exit 1 ;; \
+    esac; \
+    release="rapira-${RAPIRA_VERSION}-php${DDEV_PHP_VERSION}-linux-${architecture}"; \
+    downloads="https://github.com/rapira-rs/rapira/releases/download/${RAPIRA_VERSION}"; \
+    curl -fsSL -o "/tmp/${release}.tar.gz" "${downloads}/${release}.tar.gz"; \
+    curl -fsSL -o /tmp/rapira-checksums "${downloads}/rapira-${RAPIRA_VERSION}-SHA256SUMS.txt"; \
+    (cd /tmp && sha256sum --ignore-missing -c rapira-checksums); \
+    tar -xzf "/tmp/${release}.tar.gz" -C /usr/local/bin --strip-components=2 "${release}/bin/rapira"; \
+    rm -f "/tmp/${release}.tar.gz" /tmp/rapira-checksums; \
+    apt-get update -qq; \
+    apt-get install -y --no-install-recommends \
+        -o Dpkg::Options::=--force-confold \
+        -o Dpkg::Options::=--force-confdef \
+        "libphp${DDEV_PHP_VERSION}-embed"; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p /usr/local/lib/rapira; \
+    ln -sf "/usr/lib/libphp${DDEV_PHP_VERSION}.so" /usr/local/lib/rapira/libphp.so; \
+    rm -f "/etc/php/${DDEV_PHP_VERSION}/embed/php.ini"; \
+    ln -s "/etc/php/${DDEV_PHP_VERSION}/fpm/php.ini" "/etc/php/${DDEV_PHP_VERSION}/embed/php.ini"; \
+    rm -rf "/etc/php/${DDEV_PHP_VERSION}/embed/conf.d"; \
+    ln -s "/etc/php/${DDEV_PHP_VERSION}/fpm/conf.d" "/etc/php/${DDEV_PHP_VERSION}/embed/conf.d"; \
+    sed -i "s|killall -USR2 php-fpm 2>/dev/null|supervisorctl stop 'webextradaemons:*' >/dev/null 2>\&1; supervisorctl start 'webextradaemons:*' >/dev/null 2>\&1|" \
+        /usr/local/bin/enable_xdebug \
+        /usr/local/bin/disable_xdebug \
+        /usr/local/bin/enable_xhprof \
+        /usr/local/bin/disable_xhprof; \
+    rapira --version; \
+    dpkg-query -W -f='${Version}\n' "libphp${DDEV_PHP_VERSION}-embed"

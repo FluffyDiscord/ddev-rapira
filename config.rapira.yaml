@@ -1,0 +1,13 @@
+#ddev-generated
+# Rapira runs as a supervisord-managed daemon on 127.0.0.1:8000; DDEV's nginx proxies
+# PHP to it through the .ddev/nginx_full/nginx-site.conf override this add-on installs.
+# php-fpm stays up but idle — DDEV's /phpstatus healthcheck and the /xhprof UI use it.
+#
+# The command is one bare word on purpose. DDEV wraps this value in double quotes and
+# supervisord then splits the result with shell-lexer rules, so any quote written here
+# is stripped. All of the daemon's logic lives in /usr/local/bin/rapira-daemon.
+webserver_type: nginx-fpm
+web_extra_daemons:
+  - name: "rapira"
+    command: "rapira-daemon"
+    directory: /var/www/html

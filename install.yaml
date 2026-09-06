@@ -1,0 +1,112 @@
+name: rapira
+
+project_files:
+  - config.rapira.yaml
+  - nginx_full/nginx-site.conf
+  - web-build/Dockerfile.rapira
+  - web-build/rapira-daemon.sh
+  - commands/web/rapira-restart
+
+ddev_version_constraint: '>= v1.24.10'
+
+pre_install_actions:
+  - |
+    #ddev-description:Checking the PHP version
+    # Rapira publishes builds for PHP 8.4 and 8.5 only.
+    case "${DDEV_PHP_VERSION}" in
+      8.4|8.5) ;;
+      *)
+        echo "ddev-rapira needs PHP 8.4 or 8.5; this project is on ${DDEV_PHP_VERSION}."
+        echo "Run 'ddev config --php-version=8.5' and try again."
+        exit 2
+        ;;
+    esac
+  - |
+    #ddev-description:Checking the project type
+    # The add-on ships one nginx site config. DDEV renders a different one per project
+    # type, and only 'php' and 'symfony' share the file this add-on is derived from —
+    # installing it on another type would silently replace that type's routing rules.
+    case "${DDEV_PROJECT_TYPE}" in
+      php|symfony) ;;
+      *)
+        echo "ddev-rapira ships an nginx config for project types 'php' and 'symfony'; this project is '${DDEV_PROJECT_TYPE}'."
+        echo "Installing would replace the routing rules DDEV generates for '${DDEV_PROJECT_TYPE}'."
+        exit 2
+        ;;
+    esac
+  - |
+    #ddev-description:Making room for the nginx override
+    # The override deliberately carries no DDEV generated-file marker, so DDEV never
+    # regenerates it back to php-fpm. DDEV also refuses to overwrite such a file, so a
+    # previous install of this add-on has to be removed here or an upgrade never lands.
+    OVERRIDE="${DDEV_APPROOT}/.ddev/nginx_full/nginx-site.conf"
+    if [ -f "${OVERRIDE}" ]; then
+      if grep -q 'ddev-rapira-managed' "${OVERRIDE}"; then
+        # Not beside the original: ddev copies all of nginx_full/ into sites-enabled.
+        BACKUP="${DDEV_APPROOT}/.ddev/nginx-site.conf.ddev-rapira-backup-$(date +%s)"
+        cp "${OVERRIDE}" "${BACKUP}"
+        rm -f "${OVERRIDE}"
+        echo "Replaced the previous nginx override; the old one is at ${BACKUP}."
+      elif ! grep -q '#ddev-generated' "${OVERRIDE}"; then
+        echo "${OVERRIDE} is yours: it carries neither DDEV's generated-file marker nor this add-on's."
+        echo "ddev-rapira has to own that file to route PHP to Rapira. Move it aside and install again."
+        exit 2
+      fi
+    fi
+
+post_install_actions:
+  - |
+    #ddev-description:Pointing the nginx override at the project docroot
+    # The shipped override says 'public'; set it to whatever this project uses.
+    OVERRIDE="${DDEV_APPROOT}/.ddev/nginx_full/nginx-site.conf"
+    if [ -f "${OVERRIDE}" ]; then
+      sed -i "s|root /var/www/html/public;|root /var/www/html/${DDEV_DOCROOT};|" "${OVERRIDE}"
+    fi
+  - |
+    #ddev-description:Verifying the nginx override was installed
+    # Without this file nginx keeps talking to php-fpm and the project still answers 200,
+    # so a skipped copy has to fail the install rather than look like success.
+    OVERRIDE="${DDEV_APPROOT}/.ddev/nginx_full/nginx-site.conf"
+    if [ ! -f "${OVERRIDE}" ] || ! grep -q 'ddev-rapira-managed' "${OVERRIDE}" || ! grep -q 'proxy_pass http://rapira_backend' "${OVERRIDE}"; then
+      echo "${OVERRIDE} was not installed, so nginx would keep serving through php-fpm."
+      echo "Remove that file and run 'ddev add-on get' again."
+      exit 2
+    fi
+  - |
+    #ddev-description:What to do next
+    echo ""
+    echo "Run 'ddev restart' now — until you do, the project is still served by php-fpm."
+    echo ""
+    echo "Commit the nginx override explicitly; DDEV's .ddev/.gitignore excludes it until"
+    echo "the next start regenerates that file:"
+    echo "    git add -f .ddev/nginx_full/nginx-site.conf"
+    echo ""
+    echo "nginx reaches Rapira over HTTP on 127.0.0.1, so \$_SERVER['HTTPS'] is empty and every"
+    echo "client IP is 127.0.0.1. Trust the proxy in your app, e.g. for Symfony:"
+    echo "    framework.trusted_proxies: '127.0.0.1'"
+    echo "    framework.trusted_headers: ['x-forwarded-for','x-forwarded-proto','x-forwarded-host']"
+    # RAPIRA_CONFIG_FILE lives in .ddev/.env.web, which ddev does not inject into add-on
+    # actions — it injects .ddev/.env.<add-on name> only — so read it here.
+    CONFIG_FILE="rapira.toml"
+    ENV_WEB="${DDEV_APPROOT}/.ddev/.env.web"
+    if [ -f "${ENV_WEB}" ] && grep -q '^RAPIRA_CONFIG_FILE=' "${ENV_WEB}"; then
+      CONFIG_FILE="$(sed -n 's/^RAPIRA_CONFIG_FILE=//p' "${ENV_WEB}" | tr -d "\"'")"
+    fi
+    if [ ! -f "${DDEV_APPROOT}/${CONFIG_FILE}" ]; then
+      echo ""
+      echo "No ${CONFIG_FILE} in the project root, so Rapira runs in classic mode against"
+      echo "${DDEV_DOCROOT}/index.php — one script run per request, which serves any PHP app."
+      echo "For a resident worker, copy example.rapira.toml from this add-on's repository."
+    fi
+
+removal_actions:
+  - |
+    #ddev-description:Restoring php-fpm nginx routing
+    # The override is markerless, so DDEV will not remove it itself.
+    OVERRIDE="${DDEV_APPROOT}/.ddev/nginx_full/nginx-site.conf"
+    if [ -f "${OVERRIDE}" ] && grep -q 'ddev-rapira-managed' "${OVERRIDE}"; then
+      rm -f "${OVERRIDE}"
+      echo "Removed the nginx override; DDEV restores php-fpm routing on the next start."
+      echo "If you committed it, drop it from git too:"
+      echo "    git rm --cached .ddev/nginx_full/nginx-site.conf"
+    fi

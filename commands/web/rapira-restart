@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+#ddev-generated
+## Description: Restart the Rapira daemon so it picks up code and php.ini changes
+## Usage: rapira-restart
+## Example: "ddev rapira-restart"
+
+# stop and start rather than restart: restart respawns before Rapira has released the
+# listening socket, and the new process dies on "Address already in use".
+supervisorctl stop webextradaemons:rapira
+exec supervisorctl start webextradaemons:rapira
