@@ -10,7 +10,9 @@
 
 Serve your PHP application with [Rapira](https://github.com/rapira-rs/rapira) in [DDEV](https://ddev.com/), with DDEV's nginx still in front.
 
-Rapira is a PHP application server written in Rust that embeds the PHP interpreter and serves HTTP directly. In **classic** mode it runs your entry script per request, so it serves any framework unchanged; in **dispatcher** mode it keeps a booted application resident between requests.
+Rapira is a PHP application server written in Rust. In **classic** mode it runs your entry script per request, so it serves any framework unchanged; in **dispatcher** mode it keeps a booted application resident between requests.
+
+It [embeds `libphp.so`](https://rapira.rs/docs/intro/installation) rather than talking to a separate PHP process, so this add-on points it at the image's own PHP. Your project keeps the PHP version, extensions, ini values and `.ddev/php/*.ini` overrides it already had, and `ddev xdebug on`, `ddev xhprof on`, `ddev php`, `ddev composer` and the rest keep working.
 
 ## Install
 
@@ -28,29 +30,6 @@ The `-f` matters if you commit `.ddev`: DDEV lists that path in the `.ddev/.giti
 - PHP **8.4** or **8.5** — Rapira publishes builds for those two only
 - Project type **`php`** or **`symfony`** (see [Known limitations](#known-limitations))
 - amd64. The arm64 build is wired up but untested
-
-## How it works
-
-```
-ddev-router ──► nginx (webserver_type: nginx-fpm)
-                 ├─ static files from the docroot
-                 ├─ /phpstatus, /xhprof ──fastcgi──► php-fpm (idle otherwise)
-                 └─ location ~ \.php$ ──proxy_pass──► 127.0.0.1:8000
-                                                       rapira (web_extra_daemon)
-```
-
-nginx keeps terminating TLS, serving static files and running the front-controller rules; only the PHP backend changes. php-fpm stays up but idle, because DDEV's container healthcheck (`/phpstatus`) and the `/xhprof` UI still talk to it.
-
-Rapira embeds `libphp.so`, so it is pointed at the image's own PHP rather than shipping its own: the add-on installs sury's embed SAPI package and symlinks the embed `php.ini` and `conf.d` onto php-fpm's. Rapira therefore runs the same PHP build, the same extensions, the same ini values and the same `.ddev/php/*.ini` overrides as `ddev php`.
-
-## What it changes
-
-| Change | Why |
-|---|---|
-| Installs `.ddev/nginx_full/nginx-site.conf` without DDEV's file-ownership marker | So DDEV never regenerates it back to php-fpm. `ddev add-on remove rapira` deletes it and DDEV restores its default on the next start |
-| Upgrades the web image's `php8.x-*` packages to the current sury patch | The embed SAPI package depends on a matching `php8.x-common`, and sury carries only its newest patch. The build log prints the resulting version |
-| Patches `enable_xdebug`, `disable_xdebug`, `enable_xhprof`, `disable_xhprof` | They reload php-fpm, which is not what serves your app any more. Patched, they restart the Rapira daemon instead, so `ddev xdebug on` works |
-| Symlinks the embed SAPI's `php.ini` and `conf.d` onto php-fpm's | Otherwise Rapira would run sury's stock production ini — 128M memory limit, 2M uploads, no mailpit — and ignore your `.ddev/php/*.ini` |
 
 ## Trusted proxies
 

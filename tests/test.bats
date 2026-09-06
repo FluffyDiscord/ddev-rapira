@@ -153,10 +153,9 @@ installIntoBareProject() {
   if ! gh auth status >/dev/null 2>&1; then
     skip "gh is not authenticated; cannot check the repository description and topics"
   fi
-  run bash -c "gh repo view '${GITHUB_REPO}' --json description,repositoryTopics"
-  assert_success
-  run bash -c "echo '${output}' | grep -iE '${forbidden}' || true"
-  assert_output ""
+  # Piped, never re-expanded through a shell string: the description holds an apostrophe.
+  run bash -c "gh repo view '${GITHUB_REPO}' --json description,repositoryTopics | grep -icE '${forbidden}' || true"
+  assert_output "0"
 }
 
 # bats test_tags=serve
@@ -194,11 +193,12 @@ installIntoBareProject() {
   local served="${output}"
 
   # The ini values must be php-fpm's, not the embed package's stock production ini.
-  # Read from ddev rather than hard-coded, so a ddev default change is not a failure.
+  # The reference is fpm's php.ini read at test time, so a ddev default change is not a
+  # failure. Not `ddev php -r ini_get(...)`: that is the CLI ini, which differs by design.
   for directive in memory_limit max_execution_time upload_max_filesize post_max_size variables_order sendmail_path; do
-    run ddev php -r "echo ini_get('${directive}');"
+    run ddev exec "php -r 'echo parse_ini_file(\"/etc/php/8.5/fpm/php.ini\")[\"${directive}\"];'"
     assert_success
-    [[ "${served}" == *"ini:${directive}=${output}"* ]]
+    [[ "${served}" == *"ini:${directive}=${output}"* ]] || fail "Rapira reports a different ${directive} than php-fpm's ini (${output})"
   done
 
   run bash -c "echo '${served}'"
@@ -220,13 +220,14 @@ installIntoBareProject() {
 
   installIntoBareProject runtime.php
 
-  # The patched scripts must no longer signal php-fpm; grep -L lists files WITHOUT a match.
-  run ddev exec grep -L 'killall -USR2 php-fpm' /usr/local/bin/enable_xdebug /usr/local/bin/disable_xdebug /usr/local/bin/enable_xhprof /usr/local/bin/disable_xhprof
-  assert_success
-  assert_output --partial "enable_xdebug"
-  assert_output --partial "disable_xdebug"
-  assert_output --partial "enable_xhprof"
-  assert_output --partial "disable_xhprof"
+  # Counted, not `grep -L`, whose exit status is 1 even when it lists the files it found.
+  local profilerScripts="/usr/local/bin/enable_xdebug /usr/local/bin/disable_xdebug /usr/local/bin/enable_xhprof /usr/local/bin/disable_xhprof"
+
+  run ddev exec "cat ${profilerScripts} | grep -c 'killall -USR2 php-fpm' || true"
+  assert_output "0"
+
+  run ddev exec "cat ${profilerScripts} | grep -c \"supervisorctl start 'webextradaemons:\\*'\" || true"
+  assert_output "4"
 
   run ddev xdebug on
   assert_success
