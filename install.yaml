@@ -58,9 +58,11 @@ post_install_actions:
   - |
     #ddev-description:Pointing the nginx override at the project docroot
     # The shipped override says 'public'; set it to whatever this project uses.
+    # The backup suffix is what makes -i portable: macOS sed requires one.
     OVERRIDE="${DDEV_APPROOT}/.ddev/nginx_full/nginx-site.conf"
     if [ -f "${OVERRIDE}" ]; then
-      sed -i "s|root /var/www/html/public;|root /var/www/html/${DDEV_DOCROOT};|" "${OVERRIDE}"
+      sed -i.sed-backup "s|root /var/www/html/public;|root /var/www/html/${DDEV_DOCROOT};|" "${OVERRIDE}"
+      rm -f "${OVERRIDE}.sed-backup"
     fi
   - |
     #ddev-description:Verifying the nginx override was installed
