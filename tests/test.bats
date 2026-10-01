@@ -311,14 +311,15 @@ installIntoBareProject() {
   run ddev dotenv set .ddev/.env.web --rapira-config-file=rapira.dev.toml
   assert_success
 
-  # A listen address the add-on must override, and an entrypoint under the web/ docroot.
+  # Two workers tell this file apart from the one-worker fallback, which also serves web/.
   cat > rapira.dev.toml <<'TOML'
 [http]
-listen = "127.0.0.1:9999"
+listen = "0.0.0.0:8000"
 
-[pool]
+[http.pool]
 mode = "classic"
 entrypoint = "web/index.php"
+processes = 2
 TOML
 
   run ddev start -y
@@ -330,10 +331,12 @@ TOML
   run ddev restart -y
   assert_success
 
-  # A 200 here proves --listen beat the config file's 9999.
   run curl -sf "https://${PROJNAME}.ddev.site/"
   assert_success
   assert_output --partial "sapi=rapira"
+
+  run ddev exec "pgrep -x -c rapira-worker"
+  assert_output "2"
 }
 
 # bats test_tags=reinstall

@@ -8,8 +8,12 @@
 #
 # DDEV's generated header already declares ARG DDEV_PHP_VERSION; re-declaring it here
 # would shadow it to empty.
+#
+# `nightly` is a moving tag whose asset names carry the build's commit hash, so the
+# current names are read from the release's SHA256SUMS asset listed by the GitHub API.
+# A stable tag (e.g. v0.8.1) names its assets after the tag itself.
 
-ARG RAPIRA_VERSION=v0.8.1
+ARG RAPIRA_VERSION=nightly
 
 COPY rapira-daemon.sh /usr/local/bin/rapira-daemon
 
@@ -21,10 +25,15 @@ RUN set -eux -o pipefail; \
         arm64) architecture=aarch64 ;; \
         *) echo "Rapira publishes linux builds for amd64 and arm64 only." >&2; exit 1 ;; \
     esac; \
-    release="rapira-${RAPIRA_VERSION}-php${DDEV_PHP_VERSION}-linux-${architecture}"; \
+    build="rapira-${RAPIRA_VERSION}"; \
+    if [ "${RAPIRA_VERSION}" = nightly ]; then \
+        checksums="$(curl -fsSL https://api.github.com/repos/rapira-rs/rapira/releases/tags/nightly | grep -oE 'rapira-[^"/]+-SHA256SUMS\.txt' | sort -u)"; \
+        build="${checksums%-SHA256SUMS.txt}"; \
+    fi; \
+    release="${build}-php${DDEV_PHP_VERSION}-linux-${architecture}"; \
     downloads="https://github.com/rapira-rs/rapira/releases/download/${RAPIRA_VERSION}"; \
     curl -fsSL -o "/tmp/${release}.tar.gz" "${downloads}/${release}.tar.gz"; \
-    curl -fsSL -o /tmp/rapira-checksums "${downloads}/rapira-${RAPIRA_VERSION}-SHA256SUMS.txt"; \
+    curl -fsSL -o /tmp/rapira-checksums "${downloads}/${build}-SHA256SUMS.txt"; \
     (cd /tmp && sha256sum --ignore-missing -c rapira-checksums); \
     tar -xzf "/tmp/${release}.tar.gz" -C /usr/local/bin --strip-components=2 "${release}/bin/rapira"; \
     rm -f "/tmp/${release}.tar.gz" /tmp/rapira-checksums; \
