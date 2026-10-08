@@ -5,13 +5,14 @@
 # index.php, which serves any PHP application unchanged. This file is the next step:
 # a config you own, still in classic mode, ready to switch to a resident worker.
 #
-# The add-on serves this file as-is. nginx proxies to 127.0.0.1:8000, which is Rapira's
-# default listen address, so leave [http] listen out or keep it on port 8000.
+# The add-on serves this file as-is. nginx proxies to 127.0.0.1:8000, so keep listen
+# on port 8000.
 #
 # To load a differently-named file instead:
 #     ddev dotenv set .ddev/.env.web --rapira-config-file=rapira.dev.toml && ddev restart
 
 [http]
+listen = "127.0.0.1:8000"
 max_body_size_mb = 20
 
 [http.pool]

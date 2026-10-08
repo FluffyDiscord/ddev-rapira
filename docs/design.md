@@ -4,6 +4,8 @@
 
 **Revised 2026-10-01:** default Rapira is the `nightly` release (`v0.8.1-nightly.ff72a0d` at the time), which carries the boot-time `$_SERVER` fix for dispatcher/worker mode ([rapira#129](https://github.com/rapira-rs/rapira/issues/129)). Its CLI is `rapira serve <CONFIG>` only and its pool section is `[http.pool]`, which reshapes D-5, D-6 and §5.4 step 3. The image build and the daemon were re-verified on **arm64** in `ddev/ddev-webserver:v1.25.4`.
 
+**Revised 2026-10-08:** default Rapira is the `v0.9.1` release, which ships that CLI and config format; `nightly` stays selectable. The tarball layout is unchanged (`bin/rapira`, RUNPATH `$ORIGIN/../lib/rapira`). The README and `example.rapira.toml` now set `listen = "127.0.0.1:8000"` explicitly rather than relying on the default.
+
 Every "verified" claim below was measured on 2026-09-06 — in a container built `FROM` this DDEV web image, through real nginx in front of a real Rapira, or read out of DDEV `v1.25.2`'s own source at the cited line. Nothing here is recalled. Every measurement was taken on **amd64**; see the arm64 assumption.
 
 ---

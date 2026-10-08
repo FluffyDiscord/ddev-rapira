@@ -9,11 +9,11 @@
 # DDEV's generated header already declares ARG DDEV_PHP_VERSION; re-declaring it here
 # would shadow it to empty.
 #
-# `nightly` is a moving tag whose asset names carry the build's commit hash, so the
-# current names are read from the release's SHA256SUMS asset listed by the GitHub API.
-# A stable tag (e.g. v0.8.1) names its assets after the tag itself.
+# A release tag (e.g. v0.9.1) names its assets after the tag itself. `nightly` is a
+# moving tag whose asset names carry the build's commit hash, so for it the current
+# names are read from the release's SHA256SUMS asset listed by the GitHub API.
 
-ARG RAPIRA_VERSION=nightly
+ARG RAPIRA_VERSION=v0.9.1
 
 COPY rapira-daemon.sh /usr/local/bin/rapira-daemon
 
