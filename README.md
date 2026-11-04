@@ -67,7 +67,7 @@ A proxy cannot supply everything `fastcgi_params` did. What changes, measured:
 |---|---|---|
 | Rapira config file | `rapira.toml` in the project root, else classic mode on `<docroot>/index.php` | `ddev dotenv set .ddev/.env.web --rapira-config-file=rapira.dev.toml && ddev restart` |
 | Docroot (the override's nginx `root`) | your `ddev config --docroot`, set at install | Edit `root` in `.ddev/nginx_full/nginx-site.conf` and `ddev restart` |
-| Rapira version | `v0.9.1` | `ARG RAPIRA_VERSION` in `.ddev/web-build/Dockerfile.rapira` (a release tag from `v0.9.1` on, or `nightly`), then `ddev restart` |
+| Rapira version | `v0.9.2` | `ARG RAPIRA_VERSION` in `.ddev/web-build/Dockerfile.rapira` (a release tag from `v0.9.1` on, or `nightly`), then `ddev restart` |
 
 The add-on does **not** write or manage `rapira.toml` — it is yours, DDEV bind-mounts it, and it stays live. Copy [`example.rapira.toml`](./example.rapira.toml) to your project root to start from something.
 
